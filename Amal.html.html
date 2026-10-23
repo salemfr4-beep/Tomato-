@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تطبيق العمال والتوصيل | تموينات طيف الفرسان</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts: Tajawal -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#16a34a',
+                            600: '#15803d',
+                            700: '#166534',
+                            800: '#14532d',
+                            900: '#134e2a',
+                        },
+                        worker: {
+                            50: '#fffbebe6',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        tajawal: ['Tajawal', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .order-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .order-card:active {
+            transform: scale(0.99);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-10">
+
+    <!-- Worker App Header -->
+    <header class="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 shadow-xl px-4 py-3">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 text-xl font-black shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-person-biking"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-black text-white leading-tight">تطبيق التوصيل للعمال</h1>
+                    <p class="text-xs text-amber-400 font-bold">تموينات طيف الفرسان - حي الندوة</p>
+                </div>
+            </div>
+
+            <button onclick="fetchWorkerOrders()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 active:scale-95">
+                <i class="fa-solid fa-rotate-right text-sm"></i>
+                <span class="hidden sm:inline">تحديث الطلبات</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-3xl mx-auto w-full px-4 pt-4 flex-grow space-y-4">
+
+        <!-- Status Summary Bar -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] text-slate-400 font-bold uppercase">طلبات جديدة بالانتظار</p>
+                    <p id="countPending" class="text-xl font-black text-amber-400 mt-0.5">0</p>
+                </div>
+                <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg font-bold">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] text-slate-400 font-bold uppercase">جاري توصيلها حالياً</p>
+                    <p id="countInDelivery" class="text-xl font-black text-blue-400 mt-0.5">0</p>
+                </div>
+                <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg font-bold">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Buttons -->
+        <div class="flex gap-2 overflow-x-auto pb-1 text-xs font-bold">
+            <button onclick="filterOrders('all')" id="btnFilterAll" class="filter-btn bg-amber-500 text-slate-950 px-4 py-2 rounded-xl shadow-md font-extrabold transition">
+                جميع الطلبات
+            </button>
+            <button onclick="filterOrders('جديد')" id="btnFilterNew" class="filter-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition">
+                الجديدة فقط
+            </button>
+            <button onclick="filterOrders('جاري التوصيل')" id="btnFilterDelivery" class="filter-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition">
+                قيد التوصيل
+            </button>
+            <button onclick="filterOrders('تم التوصيل')" id="btnFilterDone" class="filter-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition">
+                المكتملة
+            </button>
+        </div>
+
+        <!-- Orders List Container -->
+        <div id="ordersContainer" class="space-y-4">
+            <!-- Dynamic Orders View -->
+        </div>
+
+    </main>
+
+    <!-- Floating Audio Notification Alert (Visual Flash) -->
+    <div id="toastNotification" class="fixed top-16 left-4 right-4 max-w-md mx-auto z-50 hidden">
+        <div class="bg-amber-500 text-slate-950 p-4 rounded-2xl shadow-2xl font-black text-sm flex items-center justify-between border-2 border-amber-300">
+            <span id="toastMsg" class="flex items-center gap-2">
+                <i class="fa-solid fa-bell animate-bounce text-lg"></i>
+                طلب جديد وصل للتو!
+            </span>
+            <button onclick="hideToast()" class="bg-slate-950/20 hover:bg-slate-950/40 px-2.5 py-1 rounded-lg text-xs">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Supabase Configurations
+        const SUPABASE_URL = "https://yzfbzqoffamfhsslyabq.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_GZ6QGlS-izuvWxoq56Qc6g_PXfbvj96";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let allOrders = [];
+        let activeFilter = 'all';
+
+        // Auto Refresh Interval (Every 15 Seconds)
+        let autoRefreshTimer = null;
+
+        window.onload = function() {
+            fetchWorkerOrders();
+            // Enable auto refresh for workers
+            autoRefreshTimer = setInterval(fetchWorkerOrders, 15000);
+        };
+
+        // Fetch Orders for Workers
+        async function fetchWorkerOrders() {
+            const container = document.getElementById('ordersContainer');
+
+            try {
+                const { data: orders, error } = await supabaseClient
+                    .from('orders')
+                    .select('*')
+                    .order('id', { ascending: false });
+
+                if (error) throw error;
+
+                allOrders = orders || [];
+                updateStatusCounters();
+                renderOrders();
+
+            } catch (err) {
+                container.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl text-center space-y-2">
+                        <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500"></i>
+                        <p class="font-bold text-sm text-slate-300">لم نتمكن من جلب الطلبات</p>
+                        <p class="text-xs text-slate-500">${err.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Update Summary Counters
+        function updateStatusCounters() {
+            const pending = allOrders.filter(o => o.status === 'جديد' || !o.status).length;
+            const delivery = allOrders.filter(o => o.status === 'جاري التوصيل').length;
+
+            document.getElementById('countPending').innerText = pending;
+            document.getElementById('countInDelivery').innerText = delivery;
+        }
+
+        // Filter Handlers
+        function filterOrders(status) {
+            activeFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-500', 'text-slate-950', 'font-extrabold');
+                btn.classList.add('bg-slate-800', 'text-slate-300');
+            });
+
+            const activeBtnMap = {
+                'all': 'btnFilterAll',
+                'جديد': 'btnFilterNew',
+                'جاري التوصيل': 'btnFilterDelivery',
+                'تم التوصيل': 'btnFilterDone'
+            };
+
+            const btn = document.getElementById(activeBtnMap[status]);
+            if (btn) {
+                btn.classList.remove('bg-slate-800', 'text-slate-300');
+                btn.classList.add('bg-amber-500', 'text-slate-950', 'font-extrabold');
+            }
+
+            renderOrders();
+        }
+
+        // Render Orders List
+        function renderOrders() {
+            const container = document.getElementById('ordersContainer');
+
+            let filtered = allOrders;
+            if (activeFilter === 'جديد') {
+                filtered = allOrders.filter(o => o.status === 'جديد' || !o.status);
+            } else if (activeFilter === 'جاري التوصيل') {
+                filtered = allOrders.filter(o => o.status === 'جاري التوصيل');
+            } else if (activeFilter === 'تم التوصيل') {
+                filtered = allOrders.filter(o => o.status === 'تم التوصيل');
+            }
+
+            if (!filtered || filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 py-12 px-4 rounded-3xl text-center space-y-3">
+                        <i class="fa-solid fa-clipboard-check text-4xl text-slate-700"></i>
+                        <p class="font-bold text-slate-400 text-sm">لا توجد طلبات ضمن هذه الفئة حالياً</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            filtered.forEach(ord => {
+                const status = ord.status || 'جديد';
+                
+                let badgeStyle = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                if (status === 'جاري التوصيل') badgeStyle = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+                if (status === 'تم التوصيل') badgeStyle = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+
+                // Render Items
+                let itemsListHtml = '';
+                if (Array.isArray(ord.items)) {
+                    itemsListHtml = ord.items.map(item => `
+                        <div class="flex justify-between items-center text-xs py-1.5 border-b border-slate-800/80 last:border-0">
+                            <span class="font-bold text-slate-200">▪ ${item.name} <span class="text-amber-400 font-extrabold">(${item.quantity}x)</span></span>
+                            <span class="text-slate-400 font-semibold">${(item.price * item.quantity).toFixed(2)} ر.س</span>
+                        </div>
+                    `).join('');
+                }
+
+                // Phone Formatting for WhatsApp & Calls
+                const rawPhone = ord.customer_phone || '';
+                const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+                const whatsappPhone = cleanPhone.startsWith('0') ? '966' + cleanPhone.substring(1) : cleanPhone;
+
+                // Extract lat/lng if present in details
+                let mapUrl = null;
+                const locationMatch = ord.building_details ? ord.building_details.match(/\[خريطة:\s*([\d.-]+),\s*([\d.-]+)\]/) : null;
+                if (locationMatch && locationMatch[1] && locationMatch[2]) {
+                    mapUrl = `https://www.google.com/maps?q=${locationMatch[1]},${locationMatch[2]}`;
+                }
+
+                container.innerHTML += `
+                    <div class="order-card bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+                        
+                        <!-- Header / Status -->
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-800 text-slate-200 text-xs font-black px-3 py-1 rounded-xl border border-slate-700">طلب #${ord.id}</span>
+                                <span class="text-xs px-2.5 py-1 rounded-full border font-bold ${badgeStyle}">${status}</span>
+                            </div>
+                            <span class="text-[11px] text-slate-500 font-bold">
+                                <i class="fa-solid fa-clock ml-1"></i> ${new Date(ord.created_at || Date.now()).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
+
+                        <!-- Customer Details Box -->
+                        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="space-y-1">
+                                    <p class="text-xs text-slate-400 font-bold">وصف وعنوان الشقة / المكان:</p>
+                                    <p class="text-sm font-black text-amber-300 leading-snug">
+                                        <i class="fa-solid fa-location-dot ml-1 text-amber-500"></i>
+                                        ${ord.building_details || 'غير محدد'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Map Link Button for Driver -->
+                            ${mapUrl ? `
+                                <div>
+                                    <a href="${mapUrl}" target="_blank" class="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-map-location-dot text-sm"></i>
+                                        فتح موقع العميل المباشر في خرائط قوقل
+                                    </a>
+                                </div>
+                            ` : ''}
+
+                            <div class="pt-2 flex items-center justify-between border-t border-slate-900">
+                                <div>
+                                    <p class="text-[11px] text-slate-400 font-bold">رقم جوال العميل:</p>
+                                    <p class="text-sm font-bold text-white">${rawPhone}</p>
+                                </div>
+                                
+                                <!-- Quick Action Communication Buttons -->
+                                <div class="flex items-center gap-2">
+                                    <a href="tel:${rawPhone}" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow transition">
+                                        <i class="fa-solid fa-phone"></i>
+                                        اتصال
+                                    </a>
+                                    <a href="https://wa.me/${whatsappPhone}?text=أهلاً%20بكم،%20مندوب%20تموينات%20طيف%20الفرسان%20في%20الطريق%20إليكم%20لتوصيل%20الطلب%20#${ord.id}" target="_blank" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow transition">
+                                        <i class="fa-brands fa-whatsapp text-sm"></i>
+                                        واتساب
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items List -->
+                        <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/80">
+                            <p class="text-[11px] text-slate-400 font-bold uppercase mb-2">الأصناف المطلوبة للتموينات:</p>
+                            ${itemsListHtml || '<p class="text-xs text-slate-500">لا توجد تفاصيل أصناف</p>'}
+                            
+                            <div class="pt-2 border-t border-slate-800 flex justify-between items-center mt-2 font-black text-sm">
+                                <span class="text-slate-300">المبلغ المطلوب استلامه:</span>
+                                <span class="text-amber-400 text-base">${parseFloat(ord.total_price || 0).toFixed(2)} ر.س</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons for Worker -->
+                        <div class="pt-1 flex flex-col sm:flex-row gap-2">
+                            ${status === 'جديد' ? `
+                                <button onclick="changeStatus(${ord.id}, 'جاري التوصيل')" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 px-4 rounded-2xl shadow-lg transition text-xs flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-motorcycle text-sm"></i>
+                                    استلام الطلب والبدء بالتوصيل
+                                </button>
+                            ` : ''}
+
+                            ${status === 'جاري التوصيل' ? `
+                                <button onclick="changeStatus(${ord.id}, 'تم التوصيل')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-4 rounded-2xl shadow-lg transition text-xs flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-circle-check text-sm"></i>
+                                    تم التوصيل للعميل واستلام المبلغ
+                                </button>
+                            ` : ''}
+
+                            ${status === 'تم التوصيل' ? `
+                                <div class="w-full bg-emerald-950/40 border border-emerald-800/50 text-emerald-400 font-bold py-2.5 px-4 rounded-2xl text-xs text-center flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-check-double"></i> مكتمل ومسلم للعميل
+                                </div>
+                            ` : ''}
+                        </div>
+
+                    </div>
+                `;
+            });
+        }
+
+        // Change Order Status Function
+        async function changeStatus(id, newStatus) {
+            try {
+                const { error } = await supabaseClient
+                    .from('orders')
+                    .update({ status: newStatus })
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                showToast(`تم تغيير حالة الطلب #${id} إلى "${newStatus}"`);
+                fetchWorkerOrders();
+
+            } catch (err) {
+                alert("حدث خطأ أثناء تحديث حالة الطلب: " + err.message);
+            }
+        }
+
+        // Helper Toast Notification
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('hidden');
+
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function hideToast() {
+            document.getElementById('toastNotification').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
