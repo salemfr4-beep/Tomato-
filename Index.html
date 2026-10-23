@@ -181,7 +181,7 @@
             <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-cart-shopping text-brand-600 text-lg"></i>
-                    <h3 class="font-bold text-lg text-slate-900">سلة التسوق الخاص بك</h3>
+                    <h3 class="font-bold text-lg text-slate-900">سلة التسوق الخاصة بك</h3>
                 </div>
                 <button onclick="toggleCartModal(false)" class="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition">
                     <i class="fa-solid fa-xmark"></i>
@@ -209,7 +209,7 @@
                         <div class="flex justify-between items-center mb-1">
                             <label class="block text-xs font-semibold text-slate-700">تحديد موقع الشقة/المنزل على الخريطة *</label>
                             <button type="button" onclick="locateUserGPS()" class="text-[11px] bg-brand-50 hover:bg-brand-100 text-brand-700 px-2 py-0.5 rounded-lg border border-brand-200 font-bold flex items-center gap-1">
-                                <i class="fa-solid fa-location-crosshairs text-brand-600"></i> موقعي الحالية
+                                <i class="fa-solid fa-location-crosshairs text-brand-600"></i> موقعي الحالي
                             </button>
                         </div>
                         <div id="map" class="w-full h-44 rounded-xl border border-slate-300 z-10"></div>
@@ -252,6 +252,9 @@
         const SUPABASE_URL = "https://yzfbzqoffamfhsslyabq.supabase.co";
         const SUPABASE_KEY = "sb_publishable_GZ6QGlS-izuvWxoq56Qc6g_PXfbvj96";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // رقم واتساب البقالة (بالصيغة الدولية بدون +)
+        const STORE_WHATSAPP_NUMBER = "966554896108";
 
         let allProducts = [];
         let selectedCategory = 'all';
@@ -315,7 +318,6 @@
         // Fetch Products from Supabase
         async function fetchProducts() {
             const grid = document.getElementById('productsGrid');
-            const countText = document.getElementById('productCountText');
 
             grid.innerHTML = `
                 <div class="col-span-full py-16 text-center text-slate-400 space-y-3">
@@ -523,7 +525,7 @@
             }
         }
 
-        // Submit Order & Save to Supabase with Map Coordinates
+        // Submit Order & Save to Supabase then Redirect to WhatsApp
         async function submitOrder() {
             const phone = document.getElementById('custPhone').value.trim();
             const building = document.getElementById('custBuilding').value.trim();
@@ -543,7 +545,7 @@
             const buildingWithLocation = `${building} | [خريطة: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}]`;
 
             try {
-                // Insert order directly to Database for Worker App
+                // Insert order directly to Database for Worker App and select inserted row to get auto-generated ID
                 const { data, error } = await supabaseClient
                     .from('orders')
                     .insert([{
@@ -552,17 +554,31 @@
                         items: cart,
                         total_price: totalAmount,
                         status: 'جديد'
-                    }]);
+                    }])
+                    .select('id');
 
                 if (error) throw error;
 
-                showToast("تم إرسال الطلب وموقعك للعمال بنجاح!", "bg-emerald-600");
+                // Extract order ID from response or generate fallback
+                const orderId = (data && data.length > 0) ? data[0].id : Math.floor(1000 + Math.random() * 9000);
 
+                showToast("تم حفظ الطلب بنجاح! جاري التوجيه إلى واتساب...", "bg-emerald-600");
+
+                // Clear Form & Cart
                 cart = [];
                 updateCartUI();
                 toggleCartModal(false);
                 document.getElementById('custPhone').value = '';
                 document.getElementById('custBuilding').value = '';
+
+                // Redirect to WhatsApp with message "السلام عليكم رقم الطلب:كذا"
+                const whatsappMsg = encodeURIComponent(`السلام عليكم رقم الطلب:${orderId}`);
+                const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${whatsappMsg}`;
+
+                // Delay slightly for user to read toast before redirect
+                setTimeout(() => {
+                    window.location.href = whatsappUrl;
+                }, 1000);
 
             } catch (err) {
                 alert("حدث خطأ أثناء حفظ الطلب في القاعدة: " + err.message);
